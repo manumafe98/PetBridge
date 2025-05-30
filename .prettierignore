@@ -1,0 +1,27 @@
+# Ignore node_modules in both frontend and contracts
+node_modules
+frontend/node_modules
+contracts/node_modules
+
+# Ignore build and cache files
+frontend/dist
+contracts/artifacts
+contracts/cache
+contracts/dist
+
+# Ignore environment files
+.env
+frontend/.env
+contracts/.env
+
+# Ignore TypeChain files
+contracts/typechain
+contracts/typechain-types
+
+# Ignore lock files
+frontend/package-lock.json
+contracts/package-lock.json
+
+# Ignore specific Vite and Hardhat files
+frontend/vite.config.ts
+contracts/hardhat.config.ts
