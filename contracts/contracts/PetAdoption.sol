@@ -31,9 +31,9 @@ pragma solidity ^0.8.30;
 * @notice Allows people that publish themselves to take care of pets in foster to receive tips of people that want to collaborate
 * @notice The person that has the ownership of the adoption/foster of the pet receives requests of adoptions and has to review them and approve or reject them
 */
-contract PetAdoption {
-    error PetAdoption__InsufficientFeeSent();
-    error PetAdoption__InvalidPetNecessity();
+contract PetBridge {
+    error PetBridge__InsufficientFeeSent();
+    error PetBridge__InvalidPetNecessity();
 
     struct Pet {
         uint256 id;
@@ -89,7 +89,7 @@ contract PetAdoption {
 
     function addPet(string memory _name, uint8 _age, string memory _description, string memory _ipfsHash, PetType _petType, PetNecessity _petNecessity) external payable {
         if (msg.value < PET_PUBLISHER_FEE) {
-            revert PetAdoption__InsufficientFeeSent();
+            revert PetBridge__InsufficientFeeSent();
         }
 
         uint256 petId;
@@ -102,7 +102,7 @@ contract PetAdoption {
             pet = petsOnFoster[petId];
             petId = s_totalPetsOnFoster += 1;
         } else {
-            revert PetAdoption__InvalidPetNecessity();
+            revert PetBridge__InvalidPetNecessity();
         }
 
         pet.id = petId;
