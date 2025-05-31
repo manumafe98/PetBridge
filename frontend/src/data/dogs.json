@@ -1,0 +1,25 @@
+[
+    {
+        "id": 1,
+        "name": "Bobby",
+        "description": "Playful and friendly Labrador.",
+        "location": "Mendoza, Argentina",
+        "image": "/pets/bobby.webp"
+    },
+
+    {
+        "id": 2,
+        "name": "Luna",
+        "description": "Loyal and calm German Shepherd.",
+        "location": "Buenos Aires, Argentina",
+        "image": "/pets/luna.webp"
+    },
+
+    {
+        "id": 3,
+        "name": "Max",
+        "description": "Energetic and smart Beagle.",
+        "location": "Cordoba, Argentina",
+        "image": "/pets/max.webp"
+    }
+]

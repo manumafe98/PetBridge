@@ -1,0 +1,25 @@
+[
+    {
+        "id": 4,
+        "name": "Mishi",
+        "description": "Curious and cuddly domestic shorthair cat.",
+        "location": "Córdoba, Argentina",
+        "image": "/pets/mishi.webp"
+    },
+
+    {
+        "id": 5,
+        "name": "Olivia",
+        "description": "Loves napping in the sun and chasing bugs.",
+        "location": "Rosario, Argentina",
+        "image": "/pets/olivia.webp"
+    },
+
+    {
+        "id": 6,
+        "name": "Simba",
+        "description": "Playful kitten with lots of energy.",
+        "location": "La Plata, Argentina",
+        "image": "/pets/simba.webp"
+    }
+]
