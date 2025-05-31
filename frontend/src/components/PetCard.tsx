@@ -1,17 +1,21 @@
-import React from 'react';
-import type { Pet } from '../types/Pet';
+import React from "react";
+import type { Pet } from "../types/Pet";
 
 interface PetCardProps {
-    pet: Pet;
+  pet: Pet;
 }
 
 export const PetCard: React.FC<PetCardProps> = ({ pet }) => {
-    return (
-        <div className="bg-white rounded-lg shadow-md p-4 hover:shadow-lg transition-shadow duration-300">
-            <img src={pet.image} alt={pet.name} className="w-full h-55 object-contain rounded-3xl" />
-            <h2 className="text-xl font-semibold mt-2">{pet.name}</h2>
-            <p className="text-gray-600">{pet.description}</p>
-            <p className="text-gray-500 text-sm mt-1">Location: {pet.location}</p>
-        </div>
-    )
-}
+  return (
+    <div className="bg-white rounded-lg shadow-md p-4 hover:shadow-lg transition-shadow duration-300">
+      <img
+        src={pet.image}
+        alt={pet.name}
+        className="w-full h-55 object-contain rounded-3xl"
+      />
+      <h2 className="text-xl font-semibold mt-2">{pet.name}</h2>
+      <p className="text-gray-600">{pet.description}</p>
+      <p className="text-gray-500 text-sm mt-1">Location: {pet.location}</p>
+    </div>
+  );
+};

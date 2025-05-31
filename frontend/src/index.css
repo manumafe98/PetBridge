@@ -1,6 +1,6 @@
 @import "tailwindcss";
 
-:root{
+:root {
   --primary: #6504b5;
   --secondary: #eaeabe;
   --accent: #dc749c;
@@ -27,5 +27,5 @@
 }
 
 .border-primary {
-  border-color: var(--primary)
+  border-color: var(--primary);
 }
