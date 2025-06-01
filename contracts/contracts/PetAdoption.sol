@@ -1,28 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.30;
 
-// Layout of Contract:
-// version
-// imports
-// errors
-// interfaces, libraries, contracts
-// Type declarations
-// State variables
-// Events
-// Modifiers
-// Functions
-
-// Layout of Functions:
-// constructor
-// receive function (if exists)
-// fallback function (if exists)
-// external
-// public
-// internal
-// private
-// internal & private view & pure functions
-// external & public view & pure functions
-
 /**
  * @title Pet Adoption and Foster dapp.
  * @author Manuel Maxera & Aixa Irupé Alvarez.
@@ -248,8 +226,8 @@ contract PetBridge {
 
     /**
      * @notice Publishes a pet for adoption/foster with the provided pet information.
-     * @notice To publish a pet the user should be registered and algo registered as Publisher.
-     * @notice Also the publisher should send the appropiate publishing fee.
+     * @notice To publish a pet the user should be registered and also registered as Publisher.
+     * @notice Also the publisher should send the appropriate publishing fee.
      * @dev Notice that currently the ADOPTION_AND_FOSTER pet necessity is not supported.
      * @param _name The Pet name.
      * @param _age The Pet age.
@@ -310,7 +288,7 @@ contract PetBridge {
     /**
      * @notice Registers a new user as Fosterer User.
      * @notice A Fosterer User is a user that can take pets on foster and apply to foster pets published.
-     * @notice The user should send the appropiate fee to be registered as Fosterer.
+     * @notice The user should send the appropriate fee to be registered as Fosterer.
      * @dev if the user is already registered in the system the function will revert.
      * @param _name The Fosterer User name.
      * @param _ipfsHash The ipfs image hash of the user.
@@ -359,9 +337,9 @@ contract PetBridge {
     }
 
     /**
-     * @notice Allows Users registered as Adopters to perfom the action of applying to adopt a pet.
+     * @notice Allows Users registered as Adopters to perform the action of applying to adopt a pet.
      * @notice This action is only allowed for users registered and also registered as Adopters.
-     * @notice The user should send the appropiate fee to apply for the adoption.
+     * @notice The user should send the appropriate fee to apply for the adoption.
      * @param _petId The Pet on Adoption ID assigned at the time of publishing.
      */
     function applyToAdoptPet(uint256 _petId)
@@ -379,9 +357,9 @@ contract PetBridge {
     }
 
     /**
-     * @notice Allows Users registered as Fosterers to perfom the action of applying to foster a pet.
+     * @notice Allows Users registered as Fosterers to perform the action of applying to foster a pet.
      * @notice This action is only allowed for users registered and also registered as Fosterers.
-     * @notice The user should send the appropiate fee to apply for the foster.
+     * @notice The user should send the appropriate fee to apply for the foster.
      * @param _petId The Pet on Foster ID assigned at the time of publishing.
      */
     function applyToFosterPet(uint256 _petId)
@@ -425,7 +403,7 @@ contract PetBridge {
 
     /**
      * @notice Registers a new user as Adopter User.
-     * @notice A Adopter User is a user that can only apply to adopt pets.
+     * @notice An Adopter User is a user that can only apply to adopt pets.
      * @dev if the user is already registered in the system the function will revert.
      * @param _name The Adopter User name.
      * @param _ipfsHash The ipfs image hash of the user.
@@ -504,10 +482,10 @@ contract PetBridge {
      * @notice The Publisher user approves the request of foster of an Fosterer User.
      * @notice The fee paid for publishing is refunded to the Publisher.
      * @notice The fee paid for applying for fostering the pet is refunded to the Fosterer.
-     * @dev The petsFosteredSuccessfully attribute addition should be changed on a future contract version to be tracked by time
+     * @dev The petsFosteredSuccessfully attribute addition should be changed in a future contract version to be tracked by time
      *         with block.timestamp functionality and a attribute of timeThatNeedsFostering on the Pet struct tracked with chainlink oracle
      * @param _petId The Pet on Foster ID assigned at the time of publishing.
-     * @param _requestId The Request ID sent by the Fosterer User to adopt the pet.
+     * @param _requestId The Request ID sent by the Fosterer User to foster the pet.
      */
     function approvePetFoster(uint256 _petId, uint256 _requestId) external {
         address requestSender = _takeActionOverRequest(
@@ -559,7 +537,7 @@ contract PetBridge {
     }
 
     /**
-     * @notice This helper functionality loops over the pet requests and takes action approving it o rejecting it depending on the parameters passed.
+     * @notice This helper functionality loops over the pet requests and takes action approving it or rejecting it depending on the parameters passed.
      * @dev Validates the pet ID by comparing it against the total number of pets and ensuring it is non-zero.
      * @dev Validates the request ID by comparing it against the total number of requests and ensuring it is non-zero.
      * @dev Validates that the msg.sender matches the pet publisher address.
@@ -647,8 +625,8 @@ contract PetBridge {
      * @param _userAddr The address of the user that receives the tip.
      * @param _tipSender The address of the user that sends the tip.
      * @param _tipSent The value sent as tip.
-     * @param _userId The ID of the user assigned at the time of registrarion.
-     * @param _expectedType The user registrarion type.
+     * @param _userId The ID of the user assigned at the time of registration.
+     * @param _expectedType The user registration type.
      */
     function _tipUser(address _userAddr, address _tipSender, uint256 _tipSent, uint256 _userId, UserType _expectedType)
         internal
@@ -671,7 +649,7 @@ contract PetBridge {
     }
 
     /**
-     * @notice Gets all the valid Pet with the associated Pet ID and discard the already approved and rejected ones.
+     * @notice Gets all the valid Pet requests with the associated Pet ID and discards the already approved and rejected ones.
      * @param _petId The Pet ID assigned at the time of publishing.
      * @return The valid Pet requests.
      */
@@ -708,9 +686,9 @@ contract PetBridge {
     }
 
     /**
-     * @notice Checks whether the pet with the given ID is already been adopted.
+     * @notice Checks whether the pet with the given ID has already been adopted.
      * @param _id The ID of the pet assigned when it was listed for adopting.
-     * @return True if the pet is already been adopted, false otherwise.
+     * @return True if the pet has already been adopted, false otherwise.
      */
     function isPetAlreadyAdopted(uint256 _id) external view returns (bool) {
         return petAlreadyAdopted[_id];
