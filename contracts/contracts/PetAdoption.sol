@@ -32,20 +32,22 @@ pragma solidity ^0.8.30;
 * @notice The person that has the ownership of the adoption/foster of the pet receives requests of adoptions and has to review them and approve or reject them
 */
 contract PetBridge {
-    error PetBridge__InsufficientFeeSentForPublishing();
-    error PetBridge__InsufficientFeeSentForRegisteringFostererUser();
-    error PetBridge__InsufficientFeeSentForAdoption();
+    error PetBridge__InsufficientFee(FeeActionType _feeActionType);
     error PetBridge__InvalidPetNecessity();
     error PetBridge__InvalidActionForUnregisteredUser();
-    error PetBridge__ToAddAPetYouHaveToBeRegisteredAsPublisherUser();
+    error PetBridge__UnavailableActionForCurrentUserRegistration();
     error PetBridge__InvalidTipValue();
     error PetBridge__InvalidFostererUserId();
     error PetBridge__TipTransferFailed();
+    error PetBridge__RefundTransferFailed(FeeActionType _feeActionType);
     error PetBridge_NotOwner();
     error PetBridge__PetAlreadyAdopted();
+    error PetBridge__PetAlreadyFostered();
     error PetBridge__InvalidPetId();
     error PetBridge__YouHaveAlreadyAPendingRequest();
     error PetBridge__YourRequestWasPreviouslyRejected();
+    error PetBridge__YourRequestWasAlreadyApproved();
+    error PetBridge__OnlyPublisherCanApproveAdoption();
 
     struct Pet {
         uint256 id;
@@ -80,6 +82,7 @@ contract PetBridge {
     }
 
     struct Request {
+        uint256 requestId;
         uint256 petId;
         address userThatSentRequest;
         RequestType requestType;
@@ -103,11 +106,27 @@ contract PetBridge {
         ADOPTION_AND_FOSTER
     }
 
+    enum UserType {
+        NONE,
+        FOSTERER,
+        ADOPTER,
+        PUBLISHER
+    }
+
+    enum FeeActionType {
+        PUBLISHING,
+        REGISTERING_FOSTERER,
+        FOSTER_APPLICATION,
+        ADOPT_APPLICATION
+    }
+
     address private immutable i_owner;
     uint256 private s_totalPetsOnAdoption;
     uint256 private s_totalPetsOnFoster;
 
     uint256 private s_totalFostererUsers;
+
+    uint256 private s_totalRequests;
 
     uint256 private constant PET_PUBLISH_FEE = 0.001 ether;
     uint256 private constant FOSTERER_REGISTRATION_FEE = 0.001 ether;
@@ -116,13 +135,13 @@ contract PetBridge {
 
     mapping (uint256 => Pet) private petsOnAdoption;
     mapping (uint256 => Pet) private petsOnFoster;
-    mapping (uint256 => bool) private petAlreadyInFoster;
+    mapping (uint256 => bool) private petAlreadyFostered;
     mapping (uint256 => bool) private petAlreadyAdopted;
 
     mapping (uint256 => UserFosterer) private fostererUsers;
     mapping (address => UserAdopter) private adopterUsers;
     mapping (address => UserPublisher) private publisherUsers;
-    mapping (address => bool) private isUserRegistered;
+    mapping (address => UserType) private registeredUsers;
 
     mapping (uint256 => Request[]) private petRequests;
 
@@ -133,11 +152,35 @@ contract PetBridge {
     event AdopterUserAdded(address indexed _address, string name);
     event PublisherUserAdded(address indexed _address, string name);
 
-    event RequestCreated(uint256 indexed petId, address indexed userThatSentRequest, RequestType requestType);
+    event RequestCreated(uint256 indexed petId, uint256 indexed requestId, address indexed userThatSentRequest, RequestType requestType);
+
+    event PetSucessfullyAdopted();
+    event PetSuccessfullyFostered();
 
     modifier onlyOwner() {
         if (msg.sender != i_owner) {
             revert PetBridge_NotOwner();
+        }
+        _;
+    }
+
+    modifier onlyRegisteredUsers() {
+        if (registeredUsers[msg.sender] == UserType.NONE) {
+            revert PetBridge__InvalidActionForUnregisteredUser();
+        }
+        _;
+    }
+
+    modifier onlyForCertainRegisteredUsers(UserType _userType) {
+        if (registeredUsers[msg.sender] != _userType) {
+            revert PetBridge__UnavailableActionForCurrentUserRegistration();
+        }
+        _;
+    }
+
+    modifier onlyWithCorrectFee(uint256 _feeSent, uint256 _expectedFee, FeeActionType _feeAction) {
+        if (_feeSent < _expectedFee) {
+            revert PetBridge__InsufficientFee(_feeAction);
         }
         _;
     }
@@ -170,23 +213,11 @@ contract PetBridge {
         pet.petNecessity = _petNecessity;
         pet.petPublisher = msg.sender;
 
-        petAlreadyInFoster[petId] = false;
+        petAlreadyFostered[petId] = false;
         petAlreadyAdopted[petId] = false;
     }
 
-    function addPet(string memory _name, uint8 _age, string memory _description, string memory _ipfsHash, PetType _petType, string memory _publisherLocation, PetNecessity _petNecessity) external payable {
-        if (isUserRegistered[msg.sender]) {
-            revert PetBridge__InvalidActionForUnregisteredUser();
-        }
-
-        if (publisherUsers[msg.sender]._address == address(0)) {
-            revert PetBridge__ToAddAPetYouHaveToBeRegisteredAsPublisherUser();
-        }
-
-        if (msg.value < PET_PUBLISH_FEE) {
-            revert PetBridge__InsufficientFeeSentForPublishing();
-        }
-
+    function addPet(string memory _name, uint8 _age, string memory _description, string memory _ipfsHash, PetType _petType, string memory _publisherLocation, PetNecessity _petNecessity) external payable onlyRegisteredUsers onlyForCertainRegisteredUsers(UserType.PUBLISHER) onlyWithCorrectFee(msg.value, PET_PUBLISH_FEE, FeeActionType.PUBLISHING) {
         uint256 petId;
         Pet storage pet;
 
@@ -210,7 +241,7 @@ contract PetBridge {
         pet.petNecessity = _petNecessity;
         pet.petPublisher = msg.sender;
 
-        petAlreadyInFoster[petId] = false;
+        petAlreadyFostered[petId] = false;
         petAlreadyAdopted[petId] = false;
 
         if (_petNecessity == PetNecessity.ADOPTION) {
@@ -220,11 +251,7 @@ contract PetBridge {
         }
     }
 
-    function registerFostererUser(string memory _name) external payable {
-        if (msg.value < FOSTERER_REGISTRATION_FEE) {
-            revert PetBridge__InsufficientFeeSentForRegisteringFostererUser();
-        }
-
+    function registerFostererUser(string memory _name) external payable onlyWithCorrectFee(msg.value, FOSTERER_REGISTRATION_FEE, FeeActionType.REGISTERING_FOSTERER) {
         uint256 totalFostererUsers = s_totalFostererUsers += 1;
 
         UserFosterer storage user = fostererUsers[totalFostererUsers];
@@ -233,6 +260,8 @@ contract PetBridge {
         user._address = msg.sender;
         user.petsFosteredSuccessfully = 0;
         user.tipsReceived = 0;
+
+        registeredUsers[msg.sender] = UserType.FOSTERER;
 
         emit FostererUserAdded(totalFostererUsers, msg.sender, _name);
     }
@@ -255,18 +284,63 @@ contract PetBridge {
         user.tipsReceived += 1;
     }
 
-    function applyToAdoptPet(uint256 _petId) external payable {
-        if (_petId > s_totalPetsOnAdoption || _petId <= 0) {
-            revert PetBridge__InvalidPetId();
-        }
-
-        if (msg.value < PET_ADOPTION_APPLICATION_FEE) {
-            revert PetBridge__InsufficientFeeSentForAdoption();
-        }
-
+    function applyToAdoptPet(uint256 _petId) external payable onlyRegisteredUsers onlyForCertainRegisteredUsers(UserType.ADOPTER) onlyWithCorrectFee(msg.value, PET_ADOPTION_APPLICATION_FEE, FeeActionType.ADOPT_APPLICATION) {
         if (petAlreadyAdopted[_petId]) {
             revert PetBridge__PetAlreadyAdopted();
         }
+
+        _helperPetApplication(_petId, s_totalPetsOnAdoption, RequestType.ADOPTION);
+    }
+
+    function applyToFosterPet(uint256 _petId) external payable onlyRegisteredUsers onlyForCertainRegisteredUsers(UserType.FOSTERER) onlyWithCorrectFee(msg.value, PET_FOSTER_APPLICATION_FEE, FeeActionType.FOSTER_APPLICATION) {
+        if (petAlreadyFostered[_petId]) {
+            revert PetBridge__PetAlreadyFostered();
+        }
+
+        _helperPetApplication(_petId, s_totalPetsOnFoster, RequestType.FOSTER);
+    }
+
+    function approvePetAdoption(uint256 _petId, uint256 _requestId) external {
+        if (msg.sender != petsOnAdoption[_petId].petPublisher) {
+            revert PetBridge__OnlyPublisherCanApproveAdoption();
+        }
+
+        Request[] storage requests = petRequests[_petId];
+        address requestSender;
+
+        for (uint256 i = 0; i < requests.length; i++) {
+            if (requests[i].requestId == _requestId) {
+                requests[i].isRequestApproved = true;
+                requestSender = requests[i].userThatSentRequest;
+                break;
+            }
+        }
+
+        (bool publishFeeRefund,) = payable(msg.sender).call{value: PET_PUBLISH_FEE}("");
+        if (!publishFeeRefund) {
+            revert PetBridge__RefundTransferFailed(FeeActionType.PUBLISHING);
+        }
+
+        (bool adoptionApplicationFeeRefund,) = payable(requestSender).call{value: PET_ADOPTION_APPLICATION_FEE}("");
+        if (!adoptionApplicationFeeRefund) {
+            revert PetBridge__RefundTransferFailed(FeeActionType.ADOPT_APPLICATION);
+        }
+
+        petAlreadyAdopted[_petId] = true;
+    }
+
+    function rejectPetAdoption() external {}
+
+    function approvePetFoster() external {}
+
+    function rejectPetFoster() external {}
+
+    function _helperPetApplication(uint256 _petId, uint256 _totalPets, RequestType _requestType) private {
+        if (_petId > _totalPets || _petId <= 0) {
+            revert PetBridge__InvalidPetId();
+        }
+
+        uint256 totalRequests = s_totalRequests += 1;
 
         Request[] storage requests = petRequests[_petId];
         for (uint256 i = 0; i < requests.length; i++) {
@@ -274,31 +348,24 @@ contract PetBridge {
                 revert PetBridge__YouHaveAlreadyAPendingRequest();
             } else if (requests[i].userThatSentRequest == msg.sender && requests[i].isRequestRejected) {
                 revert PetBridge__YourRequestWasPreviouslyRejected();
+            } else if (requests[i].userThatSentRequest == msg.sender && requests[i].isRequestApproved) {
+                revert PetBridge__YourRequestWasAlreadyApproved();
             }
         }
 
         Request memory newRequest = Request({
+            requestId: totalRequests,
             petId: _petId,
             userThatSentRequest: msg.sender,
-            requestType: RequestType.ADOPTION,
+            requestType: _requestType,
             isRequestApproved: false,
             isRequestRejected: false
         });
 
         requests.push(newRequest);
 
-        emit RequestCreated(_petId, msg.sender, RequestType.ADOPTION);
+        emit RequestCreated(_petId, totalRequests, msg.sender, _requestType);
     }
-
-    function applyToFosterPet(uint256 _petId) external payable {}
-
-    function approvePetAdoption() external {}
-
-    function rejectPetAdoption() external {}
-
-    function approvePetFoster() external {}
-
-    function rejectPetFoster() external {}
 
     function getPetRequestsByType(uint256 _petId, RequestType _requestType) external view returns(Request[] memory) {
         Request[] memory currentRequests;
