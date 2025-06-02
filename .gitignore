@@ -35,6 +35,8 @@ contracts/.env
 # Hardhat files
 contracts/cache
 contracts/artifacts
+contracts/cache_forge
+contracts/out
 
 # TypeChain files
 contracts/typechain

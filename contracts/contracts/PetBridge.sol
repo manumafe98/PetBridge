@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.30;
 
+import {Types} from "./Types.sol";
+
 /**
  * @title Pet Adoption and Foster dapp.
  * @author Manuel Maxera & Aixa Irupé Alvarez.
@@ -13,14 +15,14 @@ pragma solidity ^0.8.30;
  * @notice To apply for the adoption or foster you have to pay a fee to and pass publisher validation, that fee is going to be refunded if the process finishes successfully or unsuccesffully.
  */
 contract PetBridge {
-    error PetBridge__InsufficientFee(FeeActionType _feeActionType);
+    error PetBridge__InsufficientFee(Types.FeeActionType _feeActionType);
     error PetBridge__InvalidPetNecessity();
     error PetBridge__InvalidActionForUnregisteredUser();
     error PetBridge__UnavailableActionForCurrentUserRegistration();
     error PetBridge__InvalidTipValue();
-    error PetBridge__InvalidUserId(uint256 _userId, UserType _userType);
+    error PetBridge__InvalidUserType(address _userAddress, Types.UserType _actualUserType, Types.UserType _expectedUserType);
     error PetBridge__TipTransferFailed();
-    error PetBridge__RefundTransferFailed(FeeActionType _feeActionType);
+    error PetBridge__RefundTransferFailed(Types.FeeActionType _feeActionType);
     error PetBridge__PetAlreadyAdopted();
     error PetBridge__PetAlreadyFostered();
     error PetBridge__InvalidPetId();
@@ -32,89 +34,7 @@ contract PetBridge {
     error PetBridge__UserAlreadyRegistered();
     error PetBridge__InvalidRequestId();
     error PetBridge__InvalidRequestAction();
-
-    struct Pet {
-        uint256 id;
-        string name;
-        uint8 age;
-        string description;
-        string ipfsImageHash;
-        PetType petType;
-        PetNecessity petNecessity;
-        string publisherLocation;
-        address petPublisher;
-    }
-
-    struct UserFosterer {
-        uint256 id;
-        string name;
-        string ipfsImageHash;
-        address _address;
-        uint256 petsFosteredSuccessfully;
-        uint256 rejectedFosterApplications;
-        uint256 tipsReceived;
-    }
-
-    struct UserAdopter {
-        string name;
-        string ipfsImageHash;
-        address _address;
-        uint256 rejectedAdoptionApplications;
-    }
-
-    struct UserPublisher {
-        uint256 id;
-        string name;
-        string ipfsImageHash;
-        address _address;
-        uint256 petsAdoptedAfterPublish;
-        uint256 petsFosteredAfterPublish;
-        uint256 tipsReceived;
-    }
-
-    struct Request {
-        uint256 requestId;
-        uint256 petId;
-        address userThatSentRequest;
-        RequestType requestType;
-        bool isRequestApproved;
-        bool isRequestRejected;
-    }
-
-    enum RequestType {
-        ADOPTION,
-        FOSTER
-    }
-
-    enum PetType {
-        CAT,
-        DOG
-    }
-
-    enum PetNecessity {
-        ADOPTION,
-        FOSTER,
-        ADOPTION_AND_FOSTER
-    }
-
-    enum UserType {
-        NONE,
-        FOSTERER,
-        ADOPTER,
-        PUBLISHER
-    }
-
-    enum FeeActionType {
-        PUBLISHING,
-        REGISTERING_FOSTERER,
-        FOSTER_APPLICATION,
-        ADOPT_APPLICATION
-    }
-
-    enum RequestAction {
-        APPROVE,
-        REJECT
-    }
+    error PetBridge__RequestNotFound();
 
     address private immutable i_owner;
     uint256 private s_totalPetsOnAdoption;
@@ -132,24 +52,24 @@ contract PetBridge {
     uint256 private constant PET_ADOPTION_APPLICATION_FEE = 0.001 ether;
     uint256 private constant PET_FOSTER_APPLICATION_FEE = 0.001 ether;
 
-    mapping(uint256 => Pet) private petsOnAdoption;
-    mapping(uint256 => Pet) private petsOnFoster;
+    mapping(uint256 => Types.Pet) private petsOnAdoption;
+    mapping(uint256 => Types.Pet) private petsOnFoster;
     mapping(uint256 => bool) private petAlreadyFostered;
     mapping(uint256 => bool) private petAlreadyAdopted;
 
-    mapping(uint256 => UserFosterer) private fostererUsers;
-    mapping(uint256 => UserPublisher) private publisherUsers;
-    mapping(address => UserAdopter) private adopterUsers;
-    mapping(address => UserType) private registeredUsers;
+    mapping(uint256 => Types.UserFosterer) private fostererUsers;
+    mapping(uint256 => Types.UserPublisher) private publisherUsers;
+    mapping(address => Types.UserAdopter) private adopterUsers;
+    mapping(address => Types.UserType) private registeredUsers;
     mapping(address => uint256) private userAddressToId;
 
-    mapping(uint256 => Request[]) private petRequests;
+    mapping(uint256 => Types.Request[]) private petRequests;
 
     event PetOnAdoptionAdded(
-        uint256 indexed id, string name, PetType petType, address petPublisher, string publisherLocation
+        uint256 indexed id, string name, Types.PetType petType, address petPublisher, string publisherLocation
     );
     event PetOnFosterAdded(
-        uint256 indexed id, string name, PetType petType, address petPublisher, string publisherLocation
+        uint256 indexed id, string name, Types.PetType petType, address petPublisher, string publisherLocation
     );
 
     event FostererUserAdded(uint256 indexed id, address indexed _address, string name, string ipfsImageHash);
@@ -157,7 +77,7 @@ contract PetBridge {
     event AdopterUserAdded(address indexed _address, string name, string ipfsImageHash);
 
     event RequestCreated(
-        uint256 indexed petId, uint256 indexed requestId, address indexed userThatSentRequest, RequestType requestType
+        uint256 indexed petId, uint256 indexed requestId, address indexed userThatSentRequest, Types.RequestType requestType
     );
     event ApplicationRequestRejected(
         address indexed requestSender, uint256 indexed requestId, uint256 petId, address requestReviewer
@@ -169,23 +89,23 @@ contract PetBridge {
     event PetSucessfullyAdopted(uint256 indexed petId, address newOwner, address petPublisher);
     event PetSuccessfullyFostered(uint256 indexed petId, address currentFosterer, address petPublisher);
 
-    event TipSent(address indexed sender, address indexed receiver, UserType forUserType);
+    event TipSent(address indexed sender, address indexed receiver, Types.UserType forUserType);
 
     modifier onlyRegisteredUsers() {
-        if (registeredUsers[msg.sender] == UserType.NONE) {
+        if (registeredUsers[msg.sender] == Types.UserType.NONE) {
             revert PetBridge__InvalidActionForUnregisteredUser();
         }
         _;
     }
 
-    modifier onlyForCertainRegisteredUsers(UserType _userType) {
+    modifier onlyForCertainRegisteredUsers(Types.UserType _userType) {
         if (registeredUsers[msg.sender] != _userType) {
             revert PetBridge__UnavailableActionForCurrentUserRegistration();
         }
         _;
     }
 
-    modifier onlyWithCorrectFee(uint256 _feeSent, uint256 _expectedFee, FeeActionType _feeAction) {
+    modifier onlyWithCorrectFee(uint256 _feeSent, uint256 _expectedFee, Types.FeeActionType _feeAction) {
         if (_feeSent < _expectedFee) {
             revert PetBridge__InsufficientFee(_feeAction);
         }
@@ -193,7 +113,7 @@ contract PetBridge {
     }
 
     modifier onlyForNewUsers(address _sender) {
-        if (registeredUsers[_sender] != UserType.NONE) {
+        if (registeredUsers[_sender] != Types.UserType.NONE) {
             revert PetBridge__UserAlreadyRegistered();
         }
         _;
@@ -242,25 +162,25 @@ contract PetBridge {
         uint8 _age,
         string memory _description,
         string memory _ipfsHash,
-        PetType _petType,
+        Types.PetType _petType,
         string memory _publisherLocation,
-        PetNecessity _petNecessity
+        Types.PetNecessity _petNecessity
     )
         external
         payable
         onlyRegisteredUsers
-        onlyForCertainRegisteredUsers(UserType.PUBLISHER)
-        onlyWithCorrectFee(msg.value, PET_PUBLISH_FEE, FeeActionType.PUBLISHING)
+        onlyForCertainRegisteredUsers(Types.UserType.PUBLISHER)
+        onlyWithCorrectFee(msg.value, PET_PUBLISH_FEE, Types.FeeActionType.PUBLISHING)
     {
         uint256 petId;
-        Pet storage pet;
+        Types.Pet storage pet;
 
-        if (_petNecessity == PetNecessity.ADOPTION) {
-            pet = petsOnAdoption[petId];
+        if (_petNecessity == Types.PetNecessity.ADOPTION) {
             petId = s_totalPetsOnAdoption += 1;
-        } else if (_petNecessity == PetNecessity.FOSTER) {
-            pet = petsOnFoster[petId];
+            pet = petsOnAdoption[petId];
+        } else if (_petNecessity == Types.PetNecessity.FOSTER) {
             petId = s_totalPetsOnFoster += 1;
+            pet = petsOnFoster[petId];
         } else {
             revert PetBridge__InvalidPetNecessity();
         }
@@ -278,7 +198,7 @@ contract PetBridge {
         petAlreadyFostered[petId] = false;
         petAlreadyAdopted[petId] = false;
 
-        if (_petNecessity == PetNecessity.ADOPTION) {
+        if (_petNecessity == Types.PetNecessity.ADOPTION) {
             emit PetOnAdoptionAdded(petId, _name, _petType, msg.sender, _publisherLocation);
         } else {
             emit PetOnFosterAdded(petId, _name, _petType, msg.sender, _publisherLocation);
@@ -296,21 +216,20 @@ contract PetBridge {
     function registerFostererUser(string memory _name, string memory _ipfsHash)
         external
         payable
-        onlyWithCorrectFee(msg.value, FOSTERER_REGISTRATION_FEE, FeeActionType.REGISTERING_FOSTERER)
+        onlyWithCorrectFee(msg.value, FOSTERER_REGISTRATION_FEE, Types.FeeActionType.REGISTERING_FOSTERER)
         onlyForNewUsers(msg.sender)
     {
         uint256 totalFostererUsers = s_totalFostererUsers += 1;
 
-        UserFosterer storage user = fostererUsers[totalFostererUsers];
+        Types.UserFosterer storage user = fostererUsers[totalFostererUsers];
         user.id = totalFostererUsers;
         user.name = _name;
         user.ipfsImageHash = _ipfsHash;
         user._address = msg.sender;
         user.petsFosteredSuccessfully = 0;
-        user.petsFosteredSuccessfully = 0;
         user.tipsReceived = 0;
 
-        registeredUsers[msg.sender] = UserType.FOSTERER;
+        registeredUsers[msg.sender] = Types.UserType.FOSTERER;
         userAddressToId[msg.sender] = totalFostererUsers;
 
         emit FostererUserAdded(totalFostererUsers, msg.sender, _name, _ipfsHash);
@@ -318,21 +237,23 @@ contract PetBridge {
 
     /**
      * @notice Allows Dapp users to send Tips to appreciate the work of Fosterer Users.
-     * @param _userId The Fosterer user ID assigned at the time of registration.
+     * @param _address The Fosterer user ADDRESS.
      */
-    function tipFostererUser(uint256 _userId) external payable onlyValidTipValues(msg.value) {
-        UserFosterer storage user = fostererUsers[_userId];
-        _tipUser(user._address, msg.sender, msg.value, _userId, UserType.FOSTERER);
+    function tipFostererUser(address _address) external payable onlyValidTipValues(msg.value) {
+        uint256 userId = userAddressToId[_address];
+        Types.UserFosterer storage user = fostererUsers[userId];
+        _tipUser(_address, msg.sender, msg.value, Types.UserType.FOSTERER);
         user.tipsReceived += 1;
     }
 
     /**
      * @notice Allows Dapp users to send Tips to appreciate the work of Publisher Users.
-     * @param _userId The Publisher user ID assigned at the time of registration.
+     * @param _address The Publisher user ADDRESS.
      */
-    function tipPublisherUser(uint256 _userId) external payable onlyValidTipValues(msg.value) {
-        UserPublisher storage user = publisherUsers[_userId];
-        _tipUser(user._address, msg.sender, msg.value, _userId, UserType.PUBLISHER);
+    function tipPublisherUser(address _address) external payable onlyValidTipValues(msg.value) {
+        uint256 userId = userAddressToId[_address];
+        Types.UserPublisher storage user = publisherUsers[userId];
+        _tipUser(_address, msg.sender, msg.value, Types.UserType.PUBLISHER);
         user.tipsReceived += 1;
     }
 
@@ -346,14 +267,14 @@ contract PetBridge {
         external
         payable
         onlyRegisteredUsers
-        onlyForCertainRegisteredUsers(UserType.ADOPTER)
-        onlyWithCorrectFee(msg.value, PET_ADOPTION_APPLICATION_FEE, FeeActionType.ADOPT_APPLICATION)
+        onlyForCertainRegisteredUsers(Types.UserType.ADOPTER)
+        onlyWithCorrectFee(msg.value, PET_ADOPTION_APPLICATION_FEE, Types.FeeActionType.ADOPT_APPLICATION)
     {
         if (petAlreadyAdopted[_petId]) {
             revert PetBridge__PetAlreadyAdopted();
         }
 
-        _helperPetApplication(_petId, s_totalPetsOnAdoption, RequestType.ADOPTION);
+        _helperPetApplication(_petId, s_totalPetsOnAdoption, Types.RequestType.ADOPTION);
     }
 
     /**
@@ -366,14 +287,14 @@ contract PetBridge {
         external
         payable
         onlyRegisteredUsers
-        onlyForCertainRegisteredUsers(UserType.FOSTERER)
-        onlyWithCorrectFee(msg.value, PET_FOSTER_APPLICATION_FEE, FeeActionType.FOSTER_APPLICATION)
+        onlyForCertainRegisteredUsers(Types.UserType.FOSTERER)
+        onlyWithCorrectFee(msg.value, PET_FOSTER_APPLICATION_FEE, Types.FeeActionType.FOSTER_APPLICATION)
     {
         if (petAlreadyFostered[_petId]) {
             revert PetBridge__PetAlreadyFostered();
         }
 
-        _helperPetApplication(_petId, s_totalPetsOnFoster, RequestType.FOSTER);
+        _helperPetApplication(_petId, s_totalPetsOnFoster, Types.RequestType.FOSTER);
     }
 
     /**
@@ -386,7 +307,7 @@ contract PetBridge {
     function registerPublisherUser(string memory _name, string memory _ipfsHash) external onlyForNewUsers(msg.sender) {
         uint256 totalPublisherUsers = s_totalPublisherUsers += 1;
 
-        UserPublisher storage user = publisherUsers[totalPublisherUsers];
+        Types.UserPublisher storage user = publisherUsers[totalPublisherUsers];
         user.id = totalPublisherUsers;
         user.name = _name;
         user.ipfsImageHash = _ipfsHash;
@@ -395,7 +316,7 @@ contract PetBridge {
         user.petsFosteredAfterPublish = 0;
         user.tipsReceived = 0;
 
-        registeredUsers[msg.sender] = UserType.PUBLISHER;
+        registeredUsers[msg.sender] = Types.UserType.PUBLISHER;
         userAddressToId[msg.sender] = totalPublisherUsers;
 
         emit PublisherUserAdded(totalPublisherUsers, msg.sender, _name, _ipfsHash);
@@ -409,11 +330,13 @@ contract PetBridge {
      * @param _ipfsHash The ipfs image hash of the user.
      */
     function registerAdopterUser(string memory _name, string memory _ipfsHash) external onlyForNewUsers(msg.sender) {
-        UserAdopter storage user = adopterUsers[msg.sender];
+        Types.UserAdopter storage user = adopterUsers[msg.sender];
         user.name = _name;
         user.ipfsImageHash = _ipfsHash;
         user._address = msg.sender;
         user.rejectedAdoptionApplications = 0;
+
+        registeredUsers[msg.sender] = Types.UserType.ADOPTER;
 
         emit AdopterUserAdded(msg.sender, _name, _ipfsHash);
     }
@@ -432,7 +355,7 @@ contract PetBridge {
             _petId,
             s_totalPetsOnAdoption,
             _requestId,
-            RequestAction.APPROVE
+            Types.RequestAction.APPROVE
         );
 
         petAlreadyAdopted[_petId] = true;
@@ -440,12 +363,12 @@ contract PetBridge {
 
         (bool publishFeeRefund,) = payable(msg.sender).call{value: PET_PUBLISH_FEE}("");
         if (!publishFeeRefund) {
-            revert PetBridge__RefundTransferFailed(FeeActionType.PUBLISHING);
+            revert PetBridge__RefundTransferFailed(Types.FeeActionType.PUBLISHING);
         }
 
         (bool adoptionApplicationFeeRefund,) = payable(requestSender).call{value: PET_ADOPTION_APPLICATION_FEE}("");
         if (!adoptionApplicationFeeRefund) {
-            revert PetBridge__RefundTransferFailed(FeeActionType.ADOPT_APPLICATION);
+            revert PetBridge__RefundTransferFailed(Types.FeeActionType.ADOPT_APPLICATION);
         }
 
         emit ApplicationRequestApproved(requestSender, _requestId, _petId, msg.sender);
@@ -465,14 +388,14 @@ contract PetBridge {
             _petId,
             s_totalPetsOnAdoption,
             _requestId,
-            RequestAction.REJECT
+            Types.RequestAction.REJECT
         );
 
         adopterUsers[requestSender].rejectedAdoptionApplications += 1;
 
         (bool adoptApplicationFeeRefund,) = payable(requestSender).call{value: PET_ADOPTION_APPLICATION_FEE}("");
         if (!adoptApplicationFeeRefund) {
-            revert PetBridge__RefundTransferFailed(FeeActionType.ADOPT_APPLICATION);
+            revert PetBridge__RefundTransferFailed(Types.FeeActionType.ADOPT_APPLICATION);
         }
 
         emit ApplicationRequestRejected(requestSender, _requestId, _petId, msg.sender);
@@ -494,7 +417,7 @@ contract PetBridge {
             _petId,
             s_totalPetsOnFoster,
             _requestId,
-            RequestAction.APPROVE
+            Types.RequestAction.APPROVE
         );
 
         petAlreadyFostered[_petId] = true;
@@ -503,16 +426,16 @@ contract PetBridge {
 
         (bool publishFeeRefund,) = payable(msg.sender).call{value: PET_PUBLISH_FEE}("");
         if (!publishFeeRefund) {
-            revert PetBridge__RefundTransferFailed(FeeActionType.PUBLISHING);
+            revert PetBridge__RefundTransferFailed(Types.FeeActionType.PUBLISHING);
         }
 
         (bool fosterApplicationFeeRefund,) = payable(requestSender).call{value: PET_FOSTER_APPLICATION_FEE}("");
         if (!fosterApplicationFeeRefund) {
-            revert PetBridge__RefundTransferFailed(FeeActionType.FOSTER_APPLICATION);
+            revert PetBridge__RefundTransferFailed(Types.FeeActionType.FOSTER_APPLICATION);
         }
 
         emit ApplicationRequestApproved(requestSender, _requestId, _petId, msg.sender);
-        emit PetSucessfullyAdopted(_petId, requestSender, msg.sender);
+        emit PetSuccessfullyFostered(_petId, requestSender, msg.sender);
     }
 
     /**
@@ -523,14 +446,14 @@ contract PetBridge {
      */
     function rejectPetFoster(uint256 _petId, uint256 _requestId) external {
         address requestSender = _takeActionOverRequest(
-            msg.sender, petsOnFoster[_petId].petPublisher, _petId, s_totalPetsOnFoster, _requestId, RequestAction.REJECT
+            msg.sender, petsOnFoster[_petId].petPublisher, _petId, s_totalPetsOnFoster, _requestId, Types.RequestAction.REJECT
         );
 
         fostererUsers[userAddressToId[requestSender]].rejectedFosterApplications += 1;
 
         (bool fosterApplicationFeeRefund,) = payable(requestSender).call{value: PET_FOSTER_APPLICATION_FEE}("");
         if (!fosterApplicationFeeRefund) {
-            revert PetBridge__RefundTransferFailed(FeeActionType.FOSTER_APPLICATION);
+            revert PetBridge__RefundTransferFailed(Types.FeeActionType.FOSTER_APPLICATION);
         }
 
         emit ApplicationRequestRejected(requestSender, _requestId, _petId, msg.sender);
@@ -554,20 +477,20 @@ contract PetBridge {
         uint256 _petId,
         uint256 _totalPets,
         uint256 _requestId,
-        RequestAction _requestAction
+        Types.RequestAction _requestAction
     ) internal onlyValidPetIds(_petId, _totalPets) onlyValidRequestIds(_requestId) returns (address) {
         if (_actionSender != _publisherAddress) {
             revert PetBridge__OnlyPublisherCanTakeActionOverRequests();
         }
 
-        Request[] storage requests = petRequests[_petId];
+        Types.Request[] storage requests = petRequests[_petId];
         address requestSender;
 
         for (uint256 i = 0; i < requests.length; i++) {
             if (requests[i].requestId == _requestId) {
-                if (_requestAction == RequestAction.APPROVE) {
+                if (_requestAction == Types.RequestAction.APPROVE) {
                     requests[i].isRequestApproved = true;
-                } else if (_requestAction == RequestAction.REJECT) {
+                } else if (_requestAction == Types.RequestAction.REJECT) {
                     requests[i].isRequestRejected = true;
                 } else {
                     revert PetBridge__InvalidRequestAction();
@@ -589,13 +512,13 @@ contract PetBridge {
      * @param _totalPets The total number of pets available in the given category.
      * @param _requestType The type of request being made: either Adoption or Foster.
      */
-    function _helperPetApplication(uint256 _petId, uint256 _totalPets, RequestType _requestType)
+    function _helperPetApplication(uint256 _petId, uint256 _totalPets, Types.RequestType _requestType)
         internal
         onlyValidPetIds(_petId, _totalPets)
     {
         uint256 totalRequests = s_totalRequests += 1;
 
-        Request[] storage requests = petRequests[_petId];
+        Types.Request[] storage requests = petRequests[_petId];
         for (uint256 i = 0; i < requests.length; i++) {
             if (requests[i].userThatSentRequest == msg.sender && !requests[i].isRequestRejected) {
                 revert PetBridge__YouHaveAlreadyAPendingRequest();
@@ -606,7 +529,7 @@ contract PetBridge {
             }
         }
 
-        Request memory newRequest = Request({
+        Types.Request memory newRequest = Types.Request({
             requestId: totalRequests,
             petId: _petId,
             userThatSentRequest: msg.sender,
@@ -625,15 +548,14 @@ contract PetBridge {
      * @param _userAddr The address of the user that receives the tip.
      * @param _tipSender The address of the user that sends the tip.
      * @param _tipSent The value sent as tip.
-     * @param _userId The ID of the user assigned at the time of registration.
      * @param _expectedType The user registration type.
      */
-    function _tipUser(address _userAddr, address _tipSender, uint256 _tipSent, uint256 _userId, UserType _expectedType)
+    function _tipUser(address _userAddr, address _tipSender, uint256 _tipSent, Types.UserType _expectedType)
         internal
     {
-        UserType actualType = registeredUsers[_userAddr];
+        Types.UserType actualType = registeredUsers[_userAddr];
         if (actualType != _expectedType) {
-            revert PetBridge__InvalidUserId(_userId, actualType);
+            revert PetBridge__InvalidUserType(_userAddr, actualType, _expectedType);
         }
 
         if (_userAddr == _tipSender) {
@@ -653,8 +575,8 @@ contract PetBridge {
      * @param _petId The Pet ID assigned at the time of publishing.
      * @return The valid Pet requests.
      */
-    function getPetValidRequests(uint256 _petId) external view returns (Request[] memory) {
-        Request[] storage requests = petRequests[_petId];
+    function getPetValidRequests(uint256 _petId) external view returns (Types.Request[] memory) {
+        Types.Request[] storage requests = petRequests[_petId];
         uint256 count = 0;
 
         for (uint256 i = 0; i < requests.length; i++) {
@@ -663,7 +585,7 @@ contract PetBridge {
             }
         }
 
-        Request[] memory currentRequests = new Request[](count);
+        Types.Request[] memory currentRequests = new Types.Request[](count);
         uint256 index = 0;
 
         for (uint256 i = 0; i < requests.length; i++) {
@@ -675,13 +597,30 @@ contract PetBridge {
 
         return currentRequests;
     }
+    
+    /**
+     * @notice Retrieves a specific request for a given pet by pet ID and request ID.
+     * @param _petId The ID of the pet associated with the request.
+     * @param _requestId The unique ID of the request, assigned during the application process.
+     * @return The matching pet request as a `Types.Request` struct.
+     * @dev Reverts with `PetBridge__RequestNotFound` if no matching request is found.
+     */
+    function getPetRequestById(uint256 _petId, uint256 _requestId) external view returns (Types.Request memory) {
+        Types.Request[] storage requests = petRequests[_petId];
+        for (uint256 i = 0; i < requests.length; i++) {
+            if (requests[i].requestId == _requestId) {
+                return requests[i];
+            }
+        }
+        revert PetBridge__RequestNotFound();
+    }
 
     /**
      * @notice Gets the Pet information associated with the given ID.
      * @param _id The Pet on Adoption ID assigned at the time of publishing.
      * @return The Pet information.
      */
-    function getPetOnAdoption(uint256 _id) external view returns (Pet memory) {
+    function getPetOnAdoption(uint256 _id) external view returns (Types.Pet memory) {
         return petsOnAdoption[_id];
     }
 
@@ -699,7 +638,7 @@ contract PetBridge {
      * @param _id The Pet on Foster ID assigned at the time of publishing.
      * @return The Pet information.
      */
-    function getPetOnFoster(uint256 _id) external view returns (Pet memory) {
+    function getPetOnFoster(uint256 _id) external view returns (Types.Pet memory) {
         return petsOnFoster[_id];
     }
 
@@ -717,7 +656,7 @@ contract PetBridge {
      * @param _id The Fosterer user ID assigned at the time of registration.
      * @return The UserFosterer information.
      */
-    function getFostererUser(uint256 _id) external view returns (UserFosterer memory) {
+    function getFostererUser(uint256 _id) external view returns (Types.UserFosterer memory) {
         return fostererUsers[_id];
     }
 
@@ -726,7 +665,7 @@ contract PetBridge {
      * @param _id The Publisher user ID assigned at the time of registration.
      * @return The UserPublisher information.
      */
-    function getPublisherUser(uint256 _id) external view returns (UserPublisher memory) {
+    function getPublisherUser(uint256 _id) external view returns (Types.UserPublisher memory) {
         return publisherUsers[_id];
     }
 
@@ -735,7 +674,7 @@ contract PetBridge {
      * @param _address The Adopter user address assigned at the time of registration.
      * @return The UserAdopter information.
      */
-    function getAdopterUser(address _address) external view returns (UserAdopter memory) {
+    function getAdopterUser(address _address) external view returns (Types.UserAdopter memory) {
         return adopterUsers[_address];
     }
 
@@ -777,5 +716,23 @@ contract PetBridge {
      */
     function getTotalPublisherUsers() external view returns (uint256) {
         return s_totalPublisherUsers;
+    }
+
+    /**
+     * @notice Retrieves the user type associated with the given address.
+     * @param _address The address of the user to query.
+     * @return The user type corresponding to the provided address, as a `UserType` enum.
+     */
+    function getRegisteredUserType(address _address) external view returns (Types.UserType) {
+        return registeredUsers[_address];
+    }
+
+    /**
+     * @notice Retrieves the user id associated with the given address.
+     * @param _address The address of the user to query.
+     * @return The user id corresponding to the provided address.
+     */
+    function getUserIdByAddress(address _address) external view returns (uint256) {
+        return userAddressToId[_address];
     }
 }
