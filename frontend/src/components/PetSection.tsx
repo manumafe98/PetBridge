@@ -34,7 +34,7 @@ const PetSection = () => {
           <button
             key={title}
             onClick={() => toggleSection(title)}
-            className="bg-white bg-opacity-80 backdrop-blur-md w-50 h-50 rounded-lg shadow-lg border-2 border-primary hover:bg-primary transition-colors duration-300 text-3xl font-semibold flex flex-col items-center justify-center cursor-pointer"
+            className="bg-white bg-opacity-80 backdrop-blur-md w-50 h-50 rounded-lg shadow-lg border-2 border-primary hover:bg-primary text-3xl font-semibold flex flex-col items-center justify-center cursor-pointer transition-transform duration-300 hover:scale-105 hover:shadow-lg"
           >
             {sectionIcons[title]}
             {visibleSections[title] ? `Hide` : `${title}`}

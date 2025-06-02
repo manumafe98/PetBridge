@@ -7,7 +7,7 @@ interface PetCardProps {
 
 export const PetCard: React.FC<PetCardProps> = ({ pet }) => {
   return (
-    <div className="bg-white rounded-lg shadow-md mt-10 p-4 hover:shadow-lg transition-shadow duration-300 border-2 border-divider">
+    <div className="bg-white rounded-lg shadow-md mt-10 p-4 border-2 border-divider transition-transform duration-300 hover:scale-105 hover:shadow-lg">
       <img
         src={pet.image}
         alt={pet.name}
