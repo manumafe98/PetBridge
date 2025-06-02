@@ -1,7 +1,6 @@
 import banner from "../assets/img/banner.png";
-import { PetSection } from "./PetSection";
 
-export const Intro = () => {
+const Intro = () => {
   return (
     <div className="relative w-full h-96 flex items-center justify-center text-center border-b-8 border-primary">
       <img
@@ -20,9 +19,8 @@ export const Intro = () => {
           Adopt a pet with transparency and security. They are counting on you!
         </p>
       </div>
-      <div className="absolute top-80 p-6 rounded-t-lg">
-        <PetSection />
-      </div>
     </div>
   );
 };
+
+export default Intro;

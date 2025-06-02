@@ -14,7 +14,7 @@
   color: var(--primary);
 }
 .bg-primary {
-  background-color: oklch(43.57% 0.239 306.44);
+  background-color: var(--primary);
 }
 .hover\:bg-primary-dark:hover {
   background-color: var(--accent);
@@ -23,7 +23,7 @@
   background-color: oklch(96.55% 0.035 302.15);
 }
 .border-divider {
-  border-color: oklch(86.44% 0.014 282.22);
+  border-color: var(--accent);
 }
 
 .border-primary {

@@ -5,7 +5,7 @@ import dogs from "../data/dogs.json";
 import type { Pet } from "../types/Pet";
 import { PetCard } from "./PetCard";
 
-export const PetSection = () => {
+const PetSection = () => {
   const sections: { title: string; data: Pet[] }[] = [
     { title: "Dogs", data: dogs },
     { title: "Cats", data: cats },
@@ -34,7 +34,7 @@ export const PetSection = () => {
           <button
             key={title}
             onClick={() => toggleSection(title)}
-            className="position-absolute transform -translate-y-1/2 bg-white bg-opacity-80 backdrop-blur-md w-50 h-50 rounded-lg shadow-lg border-2 border-primary hover:bg-primary transition-colors duration-300 text-3xl font-semibold flex flex-col items-center justify-center cursor-pointer"
+            className="bg-white bg-opacity-80 backdrop-blur-md w-50 h-50 rounded-lg shadow-lg border-2 border-primary hover:bg-primary transition-colors duration-300 text-3xl font-semibold flex flex-col items-center justify-center cursor-pointer"
           >
             {sectionIcons[title]}
             {visibleSections[title] ? `Hide` : `${title}`}
@@ -46,7 +46,7 @@ export const PetSection = () => {
         visibleSections[title] ? (
           <div
             key={title}
-            className="grid gap-6 sm:grid-cols-2 md:grid-cols-3 mb-8"
+            className="grid gap-6 sm:grid-cols-2 md:grid-cols-3 mb-8 scroll-mt-32"
           >
             {data.map((pet) => (
               <PetCard key={pet.id} pet={pet} />
@@ -57,3 +57,5 @@ export const PetSection = () => {
     </section>
   );
 };
+
+export default PetSection;
